@@ -1,0 +1,243 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.wrap{padding:1rem 0}
+.phase{margin-bottom:1.5rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.phase-header{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;background:var(--color-background-secondary)}
+.phase-badge{font-size:11px;font-weight:500;padding:2px 10px;border-radius:20px;white-space:nowrap}
+.phase-title{font-size:15px;font-weight:500;color:var(--color-text-primary);flex:1}
+.phase-meta{font-size:12px;color:var(--color-text-tertiary);white-space:nowrap}
+.chevron{font-size:12px;color:var(--color-text-tertiary);transition:transform .2s}
+.chevron.open{transform:rotate(180deg)}
+.steps{padding:0 16px 12px}
+.step{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.step:last-child{border-bottom:none}
+.step input[type=checkbox]{margin-top:3px;accent-color:var(--color-text-info);width:15px;height:15px;cursor:pointer;flex-shrink:0}
+.step-body{flex:1}
+.step-title{font-size:13px;font-weight:500;color:var(--color-text-primary);line-height:1.4}
+.step-desc{font-size:12px;color:var(--color-text-secondary);margin-top:3px;line-height:1.5}
+.step.done .step-title{text-decoration:line-through;color:var(--color-text-tertiary)}
+.step.done .step-desc{color:var(--color-text-tertiary)}
+.tag{display:inline-block;font-size:10px;font-weight:500;padding:1px 7px;border-radius:10px;margin-left:6px;vertical-align:middle}
+.tag-easy{background:var(--color-background-success);color:var(--color-text-success)}
+.tag-med{background:var(--color-background-warning);color:var(--color-text-warning)}
+.tag-hard{background:var(--color-background-danger);color:var(--color-text-danger)}
+.tag-info{background:var(--color-background-info);color:var(--color-text-info)}
+.progress-bar{height:4px;background:var(--color-border-tertiary);border-radius:2px;margin:0 16px 10px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;transition:width .3s}
+.summary{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--color-background-secondary);border-top:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-secondary)}
+.summary strong{color:var(--color-text-primary)}
+</style>
+<div class="wrap">
+
+<div id="overall-summary" style="display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:1rem;background:var(--color-background-secondary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary)">
+  <div style="flex:1">
+    <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px">Overall progress — <span id="total-count">0 of 42 steps complete</span></div>
+    <div style="height:6px;background:var(--color-border-tertiary);border-radius:3px;overflow:hidden"><div id="total-bar" style="height:100%;width:0%;background:#378ADD;border-radius:3px;transition:width .3s"></div></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const phases = [
+  {
+    id:"p0", label:"Phase 0", title:"Prerequisites & accounts setup", day:"Before you write code", color:"#378ADD",
+    steps:[
+      {t:"Read the OpenEnv GitHub repo completely", d:"Go through meta-pytorch/OpenEnv, read the README, envs/README.md, and the existing CodingEnv or GitEnv example so you understand what a complete environment looks like."},
+      {t:"Install openenv CLI locally", d:"Run pip install openenv and verify it installs without error. This CLI will be used to validate your submission at the end — you need it working early."},
+      {t:"Create a Hugging Face account", d:"Sign up at huggingface.co if you don't have one. You'll need to create a Space and push a Docker image there for final deployment."},
+      {t:"Create a GitHub repository", d:"Make a new public repo named dataforge-openenv. This is where all your code lives and what you'll submit. Add a .gitignore for Python."},
+      {t:"Set up your local Python environment", d:"Create a virtual environment with Python 3.11. Install your core dependencies: openenv, fastapi, uvicorn, duckdb, pandas, openai, pydantic. Pin versions in requirements.txt immediately."},
+      {t:"Verify Docker is installed and working", d:"Run docker build and docker run on a hello-world container. If Docker isn't installed, do that now — you'll need it for the final containerization step."},
+    ]
+  },
+  {
+    id:"p1", label:"Phase 1", title:"Project structure & scaffolding", day:"Day 1", color:"#534AB7",
+    steps:[
+      {t:"Create the full folder structure", d:"Create all directories: environments/sql_env/, environments/cleaning_env/, server/, baseline/, and root-level files. Don't write code yet — just create empty files with correct names so the structure is right from the start."},
+      {t:"Create the openenv.yaml manifest file (draft)", d:"Write the yaml with metadata: name, version, description, both environment definitions (sql and cleaning), their action/observation space names, reward_range [0.0, 1.0], and the 6 task IDs. This file evolves but having a draft forces you to commit to names early."},
+      {t:"Create requirements.txt with pinned versions", d:"List every dependency with exact versions. Judges will run docker build — if versions float, your build may break. Pin openenv, fastapi, uvicorn, duckdb, pandas, openai, pydantic, and any other library you add."},
+      {t:"Create a minimal README.md skeleton", d:"Add section headings now: Environment Description, Action Space, Observation Space, Tasks, Setup Instructions, Baseline Scores. Leave them empty for now but having the structure means you fill it in as you go, not in a panic at the end."},
+    ]
+  },
+  {
+    id:"p2", label:"Phase 2", title:"SQL environment — models & database", day:"Day 1–2", color:"#185FA5",
+    steps:[
+      {t:"Design and write SQLAction model", d:"In sql_env/models.py, define SQLAction with a single field: query (str). This is the only thing an agent can do — submit a SQL string. Keep it minimal and typed with Pydantic/dataclass as OpenEnv requires."},
+      {t:"Design and write SQLObservation model", d:"Define SQLObservation with: success (bool), error (Optional[str]), result_preview (Optional list of rows), execution_time (Optional float), plan_summary (Optional str), reward (float), done (bool). Every field serves a purpose — don't add fields you won't populate."},
+      {t:"Design and write SQLState model", d:"Define SQLState with: episode_id (str), task_id (str), step_count (int), schema_context (str — the DDL), broken_query (str — what the agent sees), target_hash (Optional str), baseline_cost (Optional float for optimization task)."},
+      {t:"Set up DuckDB and seed the database", d:"In sql_env/db/, create a seed SQL script that creates 3–4 tables (orders, customers, products, line items) with realistic column names and populates them with ~500–1000 rows of fake but plausible data. Run this once at environment startup."},
+      {t:"Create 10 broken queries for Task 1 (syntax)", d:"Write 10 valid SQL queries first, then inject one syntax error into each: a missing comma, a misspelled keyword like SELCT, an unclosed parenthesis, a missing FROM clause. Store them as a list of dicts with the broken query and the correct query."},
+      {t:"Create 8 broken queries for Task 2 (logic)", d:"Write queries that run without error but return wrong results: wrong JOIN type (LEFT vs INNER), off-by-one in WHERE filter, wrong column in GROUP BY, missing DISTINCT. Store the correct result hash alongside each."},
+      {t:"Create 6 slow queries for Task 3 (optimization)", d:"Write correct but deliberately inefficient queries: full table scans that could use filtering, Cartesian products, redundant nested subqueries, repeated aggregations. Record the baseline execution time from EXPLAIN ANALYZE for each."},
+    ]
+  },
+  {
+    id:"p3", label:"Phase 3", title:"SQL environment — logic & graders", day:"Day 2–3", color:"#185FA5",
+    steps:[
+      {t:"Write the SQLEnvironment class with reset()", d:"In sql_env/env.py, implement reset(task_id). It should: pick a random task from the task list for that task_id, open a DuckDB connection, load the seed data, return an initial SQLObservation showing the agent the schema and broken query."},
+      {t:"Write step() for Task 1 — syntax grader", d:"When the agent submits a query: try to execute it in DuckDB. If it parses and runs: reward = 1.0, done = True. If it fails: reward = 0.0, return the DuckDB error message in the observation so the agent can self-correct. Increment step_count."},
+      {t:"Write step() for Task 2 — logic grader", d:"Execute the agent's query and the gold query. Hash the sorted result sets. Exact match = 1.0. For partial credit: compute row-level Jaccard similarity (intersection / union of rows). Return result_preview (first 5 rows) so agent can see what it got."},
+      {t:"Write step() for Task 3 — optimization grader", d:"Run EXPLAIN ANALYZE on both the baseline query and the agent's query. Extract total_time from DuckDB's JSON output. reward = min(1.0, baseline_time / agent_time). If agent's query changes the result set, apply -0.2 penalty and explain in error field."},
+      {t:"Write state() method", d:"Return the current SQLState object — immutable snapshot of episode_id, task_id, step_count, schema_context, and baseline_cost. This is a read-only view; calling it should not change anything."},
+      {t:"Add episode termination logic", d:"Decide and implement: max steps per episode (suggested: 10 for syntax, 15 for logic, 20 for optimization). When step_count hits max, set done = True and return final reward. This prevents infinite loops."},
+    ]
+  },
+  {
+    id:"p4", label:"Phase 4", title:"Data cleaning environment — models & data", day:"Day 3–4", color:"#0F6E56",
+    steps:[
+      {t:"Design and write CleanAction model", d:"Define CleanAction with: action_type (Literal of impute, drop_duplicates, cast_type, standardize_format, split_column, done), column (Optional str), parameters (Optional Dict). The done action ends the episode — agent signals it's finished cleaning."},
+      {t:"Design and write CleanObservation model", d:"Define CleanObservation with: success (bool), error (Optional str), rows_affected (int), schema_diff (Dict — nulls remaining, type mismatches, duplicates count), columns_clean (List[str]), reward (float), done (bool)."},
+      {t:"Design and write CleanState model", d:"Define CleanState with: episode_id, task_id, step_count, columns_correct (list of fully cleaned columns), total_columns (int), gold_schema (Dict describing the target schema)."},
+      {t:"Create dirty dataset for Task 4 (nulls & types)", d:"Generate a 500-row CSV of customer data with: null values represented as 'N/A', '-', '', and None mixed together; an age column stored as strings like '34 years'; a salary column with $ signs and commas; phone stored as integers. Keep a clean gold version."},
+      {t:"Create dirty dataset for Task 5 (dedup & format)", d:"Take the clean dataset and: duplicate 20% of rows with minor variations (extra space, different capitalization); mix 3 date formats in the same column (DD/MM/YYYY, Mon DD YYYY, Unix timestamp); mix phone formats. Keep gold version."},
+      {t:"Create dirty dataset for Task 6 (schema normalization)", d:"Create a denormalized dataset with: a full_name column that should be first_name + last_name; an address column combining city, state, and zip; UTF-8/latin-1 encoding artifacts like Ã© instead of é. Keep gold version with correct schema."},
+    ]
+  },
+  {
+    id:"p5", label:"Phase 5", title:"Data cleaning environment — logic & graders", day:"Day 4–5", color:"#0F6E56",
+    steps:[
+      {t:"Write the CleaningEnvironment class with reset()", d:"Load the appropriate dirty CSV for the task_id. Compute baseline quality metrics (null count per column, duplicate count, format violation count) and store them. Return initial CleanObservation with schema_diff showing current quality vs target."},
+      {t:"Implement each action type as a pandas operation", d:"Map each action_type to a pandas operation: impute → fillna(), drop_duplicates → drop_duplicates(), cast_type → astype(), standardize_format → apply() with a regex, split_column → str.split(). Wrap each in try/except and return error in observation if it fails."},
+      {t:"Write step() grader for Task 4 — null/type scoring", d:"After each action, recompute: null_score = 1 - (remaining_nulls / original_nulls) per column, type_score = columns with correct dtype / total columns. Per-step reward = delta improvement from last step. Final reward = mean score across all columns when done action is called."},
+      {t:"Write step() grader for Task 5 — dedup/format scoring", d:"After each action: dedup_score = 1 - (remaining_dupes / original_dupes), format_score = fraction of rows matching target regex per column. Per-step reward = weighted delta. Final reward = 0.5 × dedup_score + 0.5 × format_score."},
+      {t:"Write step() grader for Task 6 — schema scoring", d:"After each action, compare current dataframe columns to gold schema. For each column: check name matches, dtype matches, and values match (using pd.Series.equals for exact, fuzzy for strings). reward per step = newly_correct_columns / total_columns."},
+      {t:"Add penalty for destructive actions", d:"If an action drops more than 30% of rows (too aggressive), apply a -0.1 penalty and warn in the observation error field. This discourages agents from deleting their way to a clean dataset."},
+    ]
+  },
+  {
+    id:"p6", label:"Phase 6", title:"FastAPI server", day:"Day 5", color:"#993C1D",
+    steps:[
+      {t:"Write the main FastAPI app in server/app.py", d:"Create three endpoints: POST /reset (takes env_id and task_id, returns initial observation), POST /step (takes episode_id and action dict, returns new observation), GET /state (takes episode_id, returns current state). Store active environment instances in a dict keyed by episode_id."},
+      {t:"Add request validation and error handling", d:"Every endpoint should validate input types and return clear HTTP 400 errors for bad input. If episode_id is not found, return 404. If an action is malformed, return the error in the observation rather than crashing the server."},
+      {t:"Add GET /health endpoint", d:"A simple endpoint that returns {status: ok}. This is required by the Dockerfile HEALTHCHECK instruction and also lets judges quickly verify your Space is alive."},
+      {t:"Test all endpoints manually with curl or Postman", d:"Before moving on, manually call reset, step, and state for both environments and all 6 tasks. Confirm observations are correct, rewards are sensible, and done triggers at the right time."},
+    ]
+  },
+  {
+    id:"p7", label:"Phase 7", title:"Baseline agent script", day:"Day 6", color:"#854F0B",
+    steps:[
+      {t:"Write the baseline prompt builder", d:"In baseline/agent.py, write a function that takes an observation and formats it into a clear text prompt for the LLM. For SQL: include the schema, the broken query, the error message. For cleaning: include the schema_diff and column list. Be explicit about what action format the model should return."},
+      {t:"Write the action parser", d:"Write a function that takes GPT-4o's text response and extracts either a SQL query string (for SQL env) or a structured CleanAction (for cleaning env). Handle cases where the model returns markdown code blocks, extra explanation, or malformed output gracefully."},
+      {t:"Write the main run_task loop", d:"Call reset(), then loop: build prompt → call OpenAI API → parse action → call step() → accumulate reward → check done. Log each step's reward to console. Return total reward for the episode."},
+      {t:"Run baseline on all 6 tasks and record scores", d:"Run the script with OPENAI_API_KEY set. Record the output scores for all 6 tasks. These exact numbers go into your README. Run it twice to confirm they're reproducible (scores may vary slightly for optimization task due to timing)."},
+    ]
+  },
+  {
+    id:"p8", label:"Phase 8", title:"Dockerfile & containerization", day:"Day 6–7", color:"#444441",
+    steps:[
+      {t:"Write the Dockerfile", d:"Use python:3.11-slim as base. Copy requirements.txt first and run pip install (this layer caches). Then copy the rest of the code. Set WORKDIR to /app. Expose port 7860 (Hugging Face default). Set CMD to start uvicorn on 0.0.0.0:7860."},
+      {t:"Add HEALTHCHECK to Dockerfile", d:"Add the HEALTHCHECK instruction pointing to your /health endpoint. This is explicitly called out in the OpenEnv spec and judges will check for it."},
+      {t:"Run docker build locally and fix all errors", d:"Run docker build -t dataforge-openenv . and resolve every error. Common issues: missing dependencies in requirements.txt, relative import errors, files not being copied. Don't proceed until the build completes cleanly."},
+      {t:"Run docker run locally and verify endpoints", d:"Run the container and call all 3 endpoints from your local machine against the container. Confirm the server starts clean, responds correctly, and the health check passes."},
+      {t:"Run openenv validate against the running container", d:"With the container running, run openenv validate from your CLI. Fix any compliance errors it reports. This is a hard requirement — judges run this command."},
+    ]
+  },
+  {
+    id:"p9", label:"Phase 9", title:"Hugging Face Space deployment", day:"Day 7", color:"#3C3489",
+    steps:[
+      {t:"Create a new Hugging Face Space", d:"Go to huggingface.co/new-space. Choose Docker as the SDK. Name it dataforge-openenv. Set it to public. Add the openenv tag in the Space metadata — this is required for hub integration."},
+      {t:"Push your Docker image to the Space", d:"Follow HF's Docker Space instructions to push your image. The Space will build and deploy automatically. Monitor the build logs for errors."},
+      {t:"Verify the Space is live and responding", d:"Once deployed, call your Space's public URL at /health, /reset, and /step. Confirm the responses match what you get locally. If anything is broken, debug via the HF Space logs."},
+    ]
+  },
+  {
+    id:"p10", label:"Phase 10", title:"README & final submission", day:"Day 7–8", color:"#5F5E5A",
+    steps:[
+      {t:"Write the Environment Description section", d:"Explain what DataForge OpenEnv is, why you chose SQL debugging and data cleaning, and who would use this environment. 2–3 paragraphs. Make a compelling case for real-world utility — this is 30% of your score."},
+      {t:"Document Action and Observation spaces", d:"For each environment, write a clear table showing every field in the Action and Observation models with its type, whether it's optional, and what it represents. Judges read this to understand your design choices."},
+      {t:"Document all 6 tasks with difficulty ratings", d:"For each task: write the objective in one sentence, explain what the agent sees, explain what the grader checks, and state the difficulty (easy/medium/hard). Include the grader formula (e.g. reward = baseline_time / agent_time)."},
+      {t:"Write setup instructions", d:"Cover: cloning the repo, installing dependencies, running locally with uvicorn, running with Docker, running the baseline script with OPENAI_API_KEY, and running openenv validate. Someone who has never seen your code should be able to run it in 10 minutes."},
+      {t:"Add baseline scores table", d:"Add a table showing the GPT-4o baseline scores for all 6 tasks. Include the model name, date run, and the exact command used. This proves reproducibility."},
+      {t:"Final check: run openenv validate one more time", d:"With the HF Space live, point openenv validate at the Space URL and confirm it passes. Take a screenshot or copy the output — include it in your README or submission notes."},
+      {t:"Submit your GitHub repo and HF Space link", d:"Submit both links on the hackathon platform before the April 8 deadline. Double-check that the GitHub repo is public, the HF Space is public, and the baseline script is in the repo with instructions."},
+    ]
+  }
+];
+
+let checks = JSON.parse(localStorage.getItem('df_checks') || '{}');
+
+function save(){ try{ localStorage.setItem('df_checks', JSON.stringify(checks)); }catch(e){} }
+
+function updatePhaseProgress(pid){
+  const phase = phases.find(p=>p.id===pid);
+  const total = phase.steps.length;
+  const done = phase.steps.filter((_,i)=>checks[pid+i]).length;
+  const pct = Math.round(done/total*100);
+  const bar = document.getElementById('bar-'+pid);
+  const meta = document.getElementById('meta-'+pid);
+  if(bar) bar.style.width = pct+'%';
+  if(meta) meta.textContent = done+'/'+total+' done';
+  updateTotal();
+}
+
+function updateTotal(){
+  let total=0, done=0;
+  phases.forEach(p=>{
+    p.steps.forEach((_,i)=>{ total++; if(checks[p.id+i]) done++; });
+  });
+  document.getElementById('total-count').textContent = done+' of '+total+' steps complete';
+  document.getElementById('total-bar').style.width = Math.round(done/total*100)+'%';
+}
+
+const wrap = document.querySelector('.wrap');
+
+phases.forEach(p=>{
+  const div = document.createElement('div');
+  div.className = 'phase';
+  const header = document.createElement('div');
+  header.className = 'phase-header';
+  header.innerHTML = `
+    <span class="phase-badge" style="background:${p.color}20;color:${p.color}">${p.label}</span>
+    <span class="phase-title">${p.title}</span>
+    <span class="phase-meta" id="meta-${p.id}">0/${p.steps.length} done</span>
+    <span class="chevron" id="chev-${p.id}">▼</span>
+  `;
+  const pb = document.createElement('div');
+  pb.className='progress-bar';
+  pb.innerHTML=`<div class="progress-fill" id="bar-${p.id}" style="background:${p.color};width:0%"></div>`;
+  const stepsDiv = document.createElement('div');
+  stepsDiv.className='steps';
+  stepsDiv.id='steps-'+p.id;
+  p.steps.forEach((s,i)=>{
+    const key=p.id+i;
+    const row=document.createElement('div');
+    row.className='step'+(checks[key]?' done':'');
+    row.id='step-'+key;
+    row.innerHTML=`
+      <input type="checkbox" ${checks[key]?'checked':''} onchange="toggle('${p.id}',${i},this)">
+      <div class="step-body">
+        <div class="step-title">${s.t}</div>
+        <div class="step-desc">${s.d}</div>
+      </div>`;
+    stepsDiv.appendChild(row);
+  });
+  let open=true;
+  header.onclick=()=>{
+    open=!open;
+    stepsDiv.style.display=open?'':'none';
+    pb.style.display=open?'':'none';
+    document.getElementById('chev-'+p.id).classList.toggle('open',open);
+  };
+  document.getElementById('chev-'+p.id);
+  div.appendChild(header);
+  div.appendChild(pb);
+  div.appendChild(stepsDiv);
+  wrap.appendChild(div);
+  updatePhaseProgress(p.id);
+});
+
+function toggle(pid,i,el){
+  const key=pid+i;
+  checks[key]=el.checked;
+  save();
+  const row=document.getElementById('step-'+key);
+  if(row) row.className='step'+(el.checked?' done':'');
+  updatePhaseProgress(pid);
+}
+
+document.querySelectorAll('.chevron').forEach(c=>c.classList.add('open'));
+updateTotal();
+</script>
